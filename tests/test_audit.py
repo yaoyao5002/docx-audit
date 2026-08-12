@@ -7,11 +7,12 @@ from docx_audit.cli import audit_docx, main
 
 
 def make_docx(path: Path) -> None:
-    document = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    cjk_text = "\u5f85\u786e\u8ba4"
+    document = f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
     <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
       <w:body><w:p>
         <w:r><w:t>Agreement [Employer Name] </w:t></w:r>
-        <w:r><w:rPr><w:color w:val="FF0000"/></w:rPr><w:t>寰呯‘璁?/w:t></w:r>
+        <w:r><w:rPr><w:color w:val="FF0000"/></w:rPr><w:t>{cjk_text}</w:t></w:r>
       </w:p></w:body>
     </w:document>"""
     content_types = """<?xml version="1.0" encoding="UTF-8"?>
