@@ -9,6 +9,8 @@ from collections import Counter
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
+from docx_audit import __version__
+
 W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 NS = {"w": W_NS}
 CJK_RE = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]")
@@ -97,13 +99,35 @@ def _print_human(report: dict) -> None:
     print(f"Parts checked: {len(report['parts_checked'])}")
 
 
+def _expand_paths(paths: list[Path], recursive: bool) -> list[Path]:
+    files: list[Path] = []
+    for path in paths:
+        if path.is_dir():
+            matches = path.rglob("*.docx") if recursive else path.glob("*.docx")
+            files.extend(sorted(item for item in matches if item.is_file()))
+        else:
+            files.append(path)
+    return list(dict.fromkeys(files))
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="docx-audit",
         description="Inspect DOCX files locally without uploading their contents.",
     )
-    parser.add_argument("file", type=Path, help="DOCX file to inspect")
+    parser.add_argument(
+        "paths",
+        type=Path,
+        nargs="+",
+        help="one or more DOCX files or directories to inspect",
+    )
+    parser.add_argument(
+        "--recursive",
+        action="store_true",
+        help="recursively scan directories for DOCX files",
+    )
     parser.add_argument("--json", action="store_true", help="output machine-readable JSON")
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     parser.add_argument(
         "--fail-on-cjk",
         action="store_true",
@@ -119,23 +143,35 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    try:
-        report = audit_docx(args.file)
-    except (FileNotFoundError, ValueError, zipfile.BadZipFile, ET.ParseError) as exc:
-        print(f"docx-audit: {exc}", file=sys.stderr)
+    files = _expand_paths(args.paths, args.recursive)
+    if not files:
+        print("docx-audit: no DOCX files found", file=sys.stderr)
         return 1
 
-    if args.json:
-        print(json.dumps(report, ensure_ascii=False, indent=2))
-    else:
-        _print_human(report)
+    reports = []
+    for path in files:
+        try:
+            reports.append(audit_docx(path))
+        except (FileNotFoundError, ValueError, zipfile.BadZipFile, ET.ParseError) as exc:
+            print(f"docx-audit: {path}: {exc}", file=sys.stderr)
+            return 1
 
-    if args.fail_on_cjk and report["cjk_characters"]:
+    if args.json:
+        payload = reports[0] if len(reports) == 1 else reports
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+    else:
+        for index, report in enumerate(reports):
+            if index:
+                print()
+            _print_human(report)
+
+    if args.fail_on_cjk and any(report["cjk_characters"] for report in reports):
         return 2
-    if args.fail_on_placeholders and report["placeholders"]:
+    if args.fail_on_placeholders and any(report["placeholders"] for report in reports):
         return 3
     return 0
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

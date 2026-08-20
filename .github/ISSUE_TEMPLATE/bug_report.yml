@@ -1,0 +1,36 @@
+name: Bug report
+description: Report a reproducible problem using a synthetic DOCX or XML fixture.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: Do not upload confidential documents. Reduce the problem to a synthetic fixture.
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Include the command, expected result, and actual result.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: docx-audit version
+      placeholder: "0.2.0"
+    validations:
+      required: true
+  - type: input
+    id: python
+    attributes:
+      label: Python version and operating system
+    validations:
+      required: true
+  - type: textarea
+    id: fixture
+    attributes:
+      label: Synthetic reproduction
+      description: Link a non-confidential synthetic DOCX/XML fixture or describe how to create one.
+    validations:
+      required: true
+

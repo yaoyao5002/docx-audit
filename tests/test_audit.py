@@ -1,6 +1,7 @@
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase
+from unittest.mock import patch
 from zipfile import ZIP_DEFLATED, ZipFile
 
 from docx_audit.cli import audit_docx, main
@@ -43,3 +44,23 @@ class AuditTests(TestCase):
             make_docx(path)
             self.assertEqual(main([str(path), "--fail-on-cjk"]), 2)
             self.assertEqual(main([str(path), "--fail-on-placeholders"]), 3)
+
+    def test_directory_batch_scan(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            make_docx(root / "first.docx")
+            make_docx(root / "second.docx")
+            with patch("builtins.print") as mocked_print:
+                self.assertEqual(main([str(root)]), 0)
+            output = "\n".join(str(call.args[0]) for call in mocked_print.call_args_list if call.args)
+            self.assertIn("first.docx", output)
+            self.assertIn("second.docx", output)
+
+    def test_recursive_scan(self):
+        with TemporaryDirectory() as directory:
+            nested = Path(directory) / "nested"
+            nested.mkdir()
+            make_docx(nested / "sample.docx")
+            self.assertEqual(main([directory]), 1)
+            self.assertEqual(main([directory, "--recursive"]), 0)
+
